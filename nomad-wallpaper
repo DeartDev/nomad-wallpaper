@@ -18,9 +18,65 @@ PLAYLIST="$STATE_DIR/playlist.txt"
 
 CURRENT="$STATE_DIR/current"
 
+# Modo de ajuste: fill | fit | center | tile | stretch | none
+WALLPAPER_MODE="fill"
+
+# Se detecta automáticamente, pero puede sobrescribirse
+SCREEN_RES=""
+
 # =============================================================================
 # FUNCIONES
 # =============================================================================
+get_screen_resolution() {
+
+  [[ -n "$SCREEN_RES" ]] && return
+
+  local geometry
+
+  geometry=$(xrandr --current 2>/dev/null | grep primary | grep -oP '\d+x\d+')
+  [[ -z "$geometry" ]] && geometry=$(xrandr --current 2>/dev/null | grep -m1 connected | grep -oP '\d+x\d+')
+  [[ -z "$geometry" ]] && geometry=$(xdpyinfo 2>/dev/null | grep dimensions | grep -oP '\d+x\d+')
+
+  if [[ -z "$geometry" ]]; then
+    echo "warning: could not detect screen resolution" >&2
+    return 1
+  fi
+
+  SCREEN_RES="$geometry"
+
+}
+
+process_image() {
+
+  local src="$1"
+  local dst="$2"
+  local mode="$3"
+  local w="${SCREEN_RES%x*}"
+  local h="${SCREEN_RES#*x}"
+
+  case "$mode" in
+    fill)
+      magick "$src" -resize "${w}x${h}^" -gravity center -extent "${w}x${h}" "$dst"
+      ;;
+    fit)
+      magick "$src" -resize "${w}x${h}" -background black -gravity center -extent "${w}x${h}" "$dst"
+      ;;
+    center)
+      magick "$src" -background black -gravity center -extent "${w}x${h}" "$dst"
+      ;;
+    tile)
+      magick "$src" -write mpr:tile +delete -size "${w}x${h}" tile:mpr:tile "$dst"
+      ;;
+    stretch)
+      magick "$src" -resize "${w}x${h}!" "$dst"
+      ;;
+    none)
+      return 1
+      ;;
+  esac
+
+}
+
 create_playlist() {
 
   mkdir -p "$STATE_DIR"
@@ -54,8 +110,17 @@ get_current_wallpaper() {
 set_wallpaper() {
 
   local image="$1"
+  local target="$image"
 
-  plasma-apply-wallpaperimage "$image" >/dev/null
+  if [[ -n "$SCREEN_RES" ]] && [[ "$WALLPAPER_MODE" != "none" ]]; then
+    local processed="$STATE_DIR/processed"
+    mkdir -p "$STATE_DIR"
+    if process_image "$image" "$processed" "$WALLPAPER_MODE"; then
+      target="$processed"
+    fi
+  fi
+
+  plasma-apply-wallpaperimage "$target" >/dev/null
 
 }
 
@@ -79,6 +144,16 @@ advance_playlist() {
 
 initialize() {
 
+  if [[ ! -d "$WALLPAPER_DIR" ]]; then
+    echo "error: wallpaper directory not found: $WALLPAPER_DIR" >&2
+    exit 1
+  fi
+
+  if [[ "$WALLPAPER_MODE" != "none" ]] && ! command -v magick &>/dev/null; then
+    echo "warning: ImageMagick (magick) not found, falling back to mode=none" >&2
+    WALLPAPER_MODE="none"
+  fi
+
   [[ -f "$PLAYLIST" ]] || create_playlist
 
   [[ -f "$CURRENT" ]] || echo 1 >"$CURRENT"
@@ -89,9 +164,16 @@ main() {
 
   initialize
 
+  get_screen_resolution || true
+
   local image
 
   image=$(get_current_wallpaper)
+
+  if [[ -z "$image" ]]; then
+    echo "error: no wallpaper to apply" >&2
+    exit 1
+  fi
 
   set_wallpaper "$image"
 

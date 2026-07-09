@@ -38,11 +38,23 @@ The installer copies the script to `~/.local/bin/` and sets up the systemd timer
 
 ## Configuration
 
-By default the script looks for images in `~/Imágenes/Wallpapers`. To change this, edit the `WALLPAPER_DIR` variable at the top of the script:
+By default the script looks for images in `~/Imágenes/Wallpapers`. To change this, edit the variables at the top of the script:
 
 ```bash
 WALLPAPER_DIR="$HOME/Imágenes/Wallpapers"
+WALLPAPER_MODE="fill"   # fill | fit | center | tile | stretch | none
 ```
+
+| Mode | Effect |
+|---|---|
+| `fill` | Scales and crops to fill the screen (no black bars) |
+| `fit` | Scales to fit entirely (black bars if aspect ratio differs) |
+| `center` | Original size, centered with black bars |
+| `tile` | Repeats the image as a mosaic |
+| `stretch` | Forced stretch, ignores aspect ratio |
+| `none` | No processing, as-is |
+
+Requires ImageMagick (`magick`) for modes other than `none` — automatic fallback if not installed.
 
 Supported formats: `jpg`, `jpeg`, `png`, `webp`.
 

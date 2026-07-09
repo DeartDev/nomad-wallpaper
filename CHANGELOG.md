@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1.0 — 2026-07-09
+
+- Image fitting modes: fill, fit, center, tile, stretch (requires ImageMagick)
+- Auto screen resolution detection (xrandr / xdpyinfo)
+- Validation: error if wallpaper directory doesn't exist
+- Graceful fallback if ImageMagick is not installed
+
 ## v1.0.0 — 2026-07-09
 
 Initial release.
