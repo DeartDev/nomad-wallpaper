@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# =============================================================================
+# NOMAD WALLPAPER
+# =============================================================================
+
+# =============================================================================
+# CONFIGURACIÓN
+# =============================================================================
+
+WALLPAPER_DIR="$HOME/Imágenes/Wallpapers"
+
+STATE_DIR="$HOME/.local/share/nomad-wallpaper"
+
+PLAYLIST="$STATE_DIR/playlist.txt"
+
+CURRENT="$STATE_DIR/current"
+
+# =============================================================================
+# FUNCIONES
+# =============================================================================
+create_playlist() {
+
+  mkdir -p "$STATE_DIR"
+
+  find "$WALLPAPER_DIR" \
+    -maxdepth 1 \
+    -type f \
+    \( \
+    -iname "*.jpg" \
+    -o -iname "*.jpeg" \
+    -o -iname "*.png" \
+    -o -iname "*.webp" \
+    \) |
+    sort |
+    shuf >"$PLAYLIST"
+
+  echo 1 >"$CURRENT"
+
+}
+
+get_current_wallpaper() {
+
+  local line
+
+  line=$(<"$CURRENT")
+
+  sed -n "${line}p" "$PLAYLIST"
+
+}
+
+set_wallpaper() {
+
+  local image="$1"
+
+  plasma-apply-wallpaperimage "$image" >/dev/null
+
+}
+
+advance_playlist() {
+
+  local line
+  local total
+
+  line=$(<"$CURRENT")
+  total=$(wc -l <"$PLAYLIST")
+
+  ((line++))
+
+  if ((line > total)); then
+    create_playlist
+  else
+    echo "$line" >"$CURRENT"
+  fi
+
+}
+
+initialize() {
+
+  [[ -f "$PLAYLIST" ]] || create_playlist
+
+  [[ -f "$CURRENT" ]] || echo 1 >"$CURRENT"
+
+}
+
+main() {
+
+  initialize
+
+  local image
+
+  image=$(get_current_wallpaper)
+
+  set_wallpaper "$image"
+
+  advance_playlist
+
+}
+
+# =============================================================================
+# PROGRAMA PRINCIPAL
+# =============================================================================
+
+main
