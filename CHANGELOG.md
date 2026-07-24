@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.3.0 — 2026-07-24
+
+### Fixed
+- **Wallpaper only changed on the first run after boot**: the script wrote
+  every processed image to the same fixed path (`~/.local/share/nomad-wallpaper/processed`).
+  When `plasma-apply-wallpaperimage` was invoked with that same path on an
+  `org.kde.image` containment, KDE did not re-render the wallpaper because
+  the `Image=` entry in `plasma-org.kde.plasma.desktop-appletsrc` was
+  unchanged. The script appeared to run fine (success exit, file mtime
+  updated, playlist advanced) but the visible wallpaper was frozen.
+  The processed file is now named after a hash of the source image path
+  (`processed-<hash>.jpg`), giving each wallpaper a unique target so KDE
+  always reloads it.
+
 ## v1.2.0 — 2026-07-23
 
 ### Fixed

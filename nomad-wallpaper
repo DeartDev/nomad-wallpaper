@@ -145,7 +145,8 @@ set_wallpaper() {
   local target="$image"
 
   if [[ -n "$SCREEN_RES" ]] && [[ "$WALLPAPER_MODE" != "none" ]]; then
-    local processed="$STATE_DIR/processed"
+    local processed
+    processed="$STATE_DIR/processed-$(printf '%s' "$image" | sha256sum | cut -c1-12).jpg"
     mkdir -p "$STATE_DIR"
     if process_image "$image" "$processed" "$WALLPAPER_MODE"; then
       target="$processed"
