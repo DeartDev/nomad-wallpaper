@@ -1,5 +1,6 @@
 [Unit]
 Description=Nomad Wallpaper
+Wants=graphical-session.target
 
 [Service]
 Type=oneshot

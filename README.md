@@ -23,7 +23,7 @@ A systemd timer triggers the script every 15 minutes. When the playlist is exhau
 ## Installation
 
 ```bash
-git clone https://github.com/YOUR_USER/nomad-wallpaper.git
+git clone https://github.com/DeartDev/nomad-wallpaper.git
 cd nomad-wallpaper
 ./install.sh
 ```
@@ -63,7 +63,9 @@ Supported formats: `jpg`, `jpeg`, `png`, `webp`.
 ### Run manually
 
 ```bash
-nomad-wallpaper
+nomad-wallpaper              # quiet mode (default)
+nomad-wallpaper -v           # verbose mode (writes to ~/.local/share/nomad-wallpaper/nomad.log)
+nomad-wallpaper -h           # help
 ```
 
 ### Check timer status
@@ -80,6 +82,68 @@ systemctl --user edit nomad-wallpaper.timer
 # Change OnUnitActiveSec to your preferred interval
 systemctl --user daemon-reload
 systemctl --user start nomad-wallpaper.timer
+```
+
+### Update wallpapers
+
+Add new images to `~/Imágenes/Wallpapers` (or wherever `WALLPAPER_DIR` points).
+The new files are picked up automatically when the playlist cycles back to the start.
+
+### Verbose logs
+
+Run `nomad-wallpaper -v` manually to append timestamped entries to
+`~/.local/share/nomad-wallpaper/nomad.log`. To enable verbose logging from the
+systemd timer, override the service:
+
+```bash
+systemctl --user edit nomad-wallpaper.service
+# Add:
+# [Service]
+# ExecStart=
+# ExecStart=%h/.local/bin/nomad-wallpaper -v
+systemctl --user daemon-reload
+```
+
+## Troubleshooting
+
+### Timer stops firing after I log out
+
+By default, systemd kills all user services when your session ends.
+Fix it once with:
+
+```bash
+sudo loginctl enable-linger deartdev
+```
+
+The installer warns about this if it detects `Linger=no`.
+
+### Timer is "active (elapsed)" but no wallpaper changes
+
+This happens when the timer was started mid-session (not at boot):
+`OnBootSec` already elapsed and `OnUnitActiveSec` has no previous
+activation to count from. Prime it once:
+
+```bash
+systemctl --user start nomad-wallpaper.service
+```
+
+### Wallpaper doesn't change even though the service runs
+
+Check that the required tools are installed:
+
+```bash
+command -v plasma-apply-wallpaperimage   # comes with plasma-workspace
+command -v xrandr                        # usually preinstalled
+command -v magick                        # optional, for fitting modes
+```
+
+Then run `nomad-wallpaper -v` and inspect `~/.local/share/nomad-wallpaper/nomad.log`.
+
+### Inspect recent executions
+
+```bash
+journalctl --user -u nomad-wallpaper.service -n 30
+journalctl --user -u nomad-wallpaper.timer -n 10
 ```
 
 ## Uninstall

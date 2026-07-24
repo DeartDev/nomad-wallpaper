@@ -6,6 +6,22 @@ set -euo pipefail
 # NOMAD WALLPAPER
 # =============================================================================
 
+VERBOSE=0
+
+for arg in "$@"; do
+  case "$arg" in
+    -v|--verbose) VERBOSE=1 ;;
+    -h|--help)
+      echo "Usage: nomad-wallpaper [-v|--verbose] [-h|--help]"
+      exit 0
+      ;;
+    *)
+      echo "error: unknown argument: $arg" >&2
+      exit 1
+      ;;
+  esac
+done
+
 # =============================================================================
 # CONFIGURACIÓN
 # =============================================================================
@@ -18,6 +34,8 @@ PLAYLIST="$STATE_DIR/playlist.txt"
 
 CURRENT="$STATE_DIR/current"
 
+LOG_FILE="$STATE_DIR/nomad.log"
+
 # Modo de ajuste: fill | fit | center | tile | stretch | none
 WALLPAPER_MODE="fill"
 
@@ -27,6 +45,12 @@ SCREEN_RES=""
 # =============================================================================
 # FUNCIONES
 # =============================================================================
+log() {
+  [[ "$VERBOSE" -eq 0 ]] && return
+  mkdir -p "$STATE_DIR"
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >>"$LOG_FILE"
+}
+
 get_screen_resolution() {
 
   [[ -n "$SCREEN_RES" ]] && return
@@ -39,10 +63,12 @@ get_screen_resolution() {
 
   if [[ -z "$geometry" ]]; then
     echo "warning: could not detect screen resolution" >&2
+    log "warning: could not detect screen resolution"
     return 1
   fi
 
   SCREEN_RES="$geometry"
+  log "detected screen resolution: $SCREEN_RES"
 
 }
 
@@ -95,13 +121,19 @@ create_playlist() {
 
   echo 1 >"$CURRENT"
 
+  log "playlist created with $(wc -l <"$PLAYLIST") entries"
+
 }
 
 get_current_wallpaper() {
 
   local line
 
+  [[ -f "$CURRENT" ]] || return 1
+
   line=$(<"$CURRENT")
+
+  [[ -n "$line" ]] || return 1
 
   sed -n "${line}p" "$PLAYLIST"
 
@@ -121,6 +153,7 @@ set_wallpaper() {
   fi
 
   plasma-apply-wallpaperimage "$target" >/dev/null
+  log "wallpaper applied: $target"
 
 }
 
@@ -146,11 +179,13 @@ initialize() {
 
   if [[ ! -d "$WALLPAPER_DIR" ]]; then
     echo "error: wallpaper directory not found: $WALLPAPER_DIR" >&2
+    log "error: wallpaper directory not found: $WALLPAPER_DIR"
     exit 1
   fi
 
   if [[ "$WALLPAPER_MODE" != "none" ]] && ! command -v magick &>/dev/null; then
     echo "warning: ImageMagick (magick) not found, falling back to mode=none" >&2
+    log "warning: ImageMagick not found, using mode=none"
     WALLPAPER_MODE="none"
   fi
 
@@ -158,26 +193,32 @@ initialize() {
 
   [[ -f "$CURRENT" ]] || echo 1 >"$CURRENT"
 
+  log "initialized (mode=$WALLPAPER_MODE, dir=$WALLPAPER_DIR)"
+
 }
 
 main() {
 
+  log "--- run start ---"
   initialize
 
   get_screen_resolution || true
 
   local image
 
-  image=$(get_current_wallpaper)
+  image=$(get_current_wallpaper) || true
 
   if [[ -z "$image" ]]; then
     echo "error: no wallpaper to apply" >&2
+    log "error: no wallpaper to apply (current=$(<"$CURRENT" 2>/dev/null || echo missing))"
     exit 1
   fi
 
   set_wallpaper "$image"
 
   advance_playlist
+
+  log "--- run end ---"
 
 }
 

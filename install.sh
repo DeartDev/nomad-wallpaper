@@ -30,3 +30,12 @@ echo ""
 echo "✓ Nomad Wallpaper installed."
 echo "  Timer is active — wallpaper will update every 15 minutes."
 echo "  Run 'nomad-wallpaper' manually to apply a wallpaper immediately."
+
+if command -v loginctl &>/dev/null; then
+  if loginctl show-user "$USER" 2>/dev/null | grep -q '^Linger=no'; then
+    echo ""
+    echo "⚠  WARNING: Linger is disabled for user '$USER'."
+    echo "   The timer will stop firing when you close your session."
+    echo "   Fix with:  sudo loginctl enable-linger $USER"
+  fi
+fi
