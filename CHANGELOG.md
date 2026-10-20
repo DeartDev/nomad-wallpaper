@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.6.1 — 2026-10-20
+
+### Changed
+- `install.sh` creates the wallpaper directory (default or `WALLPAPER_DIR`
+  from the user config) if it doesn't exist, and prints where to add images
+  or how many it found.
+
 ## v1.6.0 — 2026-10-20
 
 ### Added

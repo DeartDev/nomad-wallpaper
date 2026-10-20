@@ -65,6 +65,23 @@ else
   echo "  Rules   → $OVERRIDES_PATH (kept)"
 fi
 
+# Mismo valor por defecto que el script, sobrescrito por la config del usuario
+WALLPAPER_DIR=$(
+  WALLPAPER_DIR="$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")/Wallpapers"
+  # shellcheck source=/dev/null
+  source "$CONFIG_PATH"
+  printf '%s' "$WALLPAPER_DIR"
+)
+
+if [[ ! -d "$WALLPAPER_DIR" ]]; then
+  mkdir -p "$WALLPAPER_DIR"
+  echo "  Images  → $WALLPAPER_DIR (new)"
+else
+  echo "  Images  → $WALLPAPER_DIR (kept)"
+fi
+
+IMAGE_COUNT=$(find "$WALLPAPER_DIR" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) | wc -l)
+
 systemctl --user daemon-reload
 systemctl --user enable nomad-wallpaper.timer
 systemctl --user restart nomad-wallpaper.timer
@@ -73,6 +90,14 @@ echo ""
 echo "✓ Nomad Wallpaper installed."
 echo "  Timer is active — wallpaper will update every 15 minutes."
 echo "  Run 'nomad-wallpaper' manually to apply a wallpaper immediately."
+
+if ((IMAGE_COUNT == 0)); then
+  echo ""
+  echo "→  Add your images (jpg, jpeg, png, webp) to:"
+  echo "   $WALLPAPER_DIR"
+else
+  echo "  Found $IMAGE_COUNT images in $WALLPAPER_DIR"
+fi
 
 for warning in "${WARNINGS[@]}"; do
   echo ""

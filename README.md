@@ -40,8 +40,11 @@ cd nomad-wallpaper
 ```
 
 The installer checks dependencies, copies the script to `~/.local/bin/`, sets up
-the systemd timer and creates `~/.config/nomad-wallpaper/config` if it doesn't
-exist (an existing one is never overwritten).
+the systemd timer, creates `~/.config/nomad-wallpaper/config` and `overrides`
+if they don't exist (existing ones are never overwritten) and creates the
+wallpaper directory (`<XDG Pictures dir>/Wallpapers` or your `WALLPAPER_DIR`).
+
+Then just copy your images into that directory — the installer prints its path.
 
 ### Requirements
 
