@@ -2,10 +2,7 @@
 Description=Run Nomad Wallpaper every 15 minutes
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=15min
 OnCalendar=*:0/15
-Persistent=true
 
 [Install]
 WantedBy=timers.target

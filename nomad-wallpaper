@@ -30,9 +30,19 @@ WALLPAPER_DIR="$HOME/Imágenes/Wallpapers"
 
 STATE_DIR="$HOME/.local/share/nomad-wallpaper"
 
+# Imágenes pendientes de la vuelta actual, en el orden en que se mostrarán
 PLAYLIST="$STATE_DIR/playlist.txt"
 
-CURRENT="$STATE_DIR/current"
+# Imágenes ya mostradas en la vuelta actual
+SEEN="$STATE_DIR/seen.txt"
+
+# Última imagen aplicada (evita repetirla al empezar una vuelta nueva)
+LAST="$STATE_DIR/last"
+
+# Formato de estado anterior a v1.4.0 (índice sobre playlist.txt)
+LEGACY_CURRENT="$STATE_DIR/current"
+
+LOCK_FILE="$STATE_DIR/lock"
 
 LOG_FILE="$STATE_DIR/nomad.log"
 
@@ -41,6 +51,10 @@ WALLPAPER_MODE="fill"
 
 # Se detecta automáticamente, pero puede sobrescribirse
 SCREEN_RES=""
+
+PENDING=()
+SEEN_LIST=()
+AVAILABLE=()
 
 # =============================================================================
 # FUNCIONES
@@ -103,9 +117,7 @@ process_image() {
 
 }
 
-create_playlist() {
-
-  mkdir -p "$STATE_DIR"
+scan_wallpapers() {
 
   find "$WALLPAPER_DIR" \
     -maxdepth 1 \
@@ -116,26 +128,147 @@ create_playlist() {
     -o -iname "*.png" \
     -o -iname "*.webp" \
     \) |
-    sort |
-    shuf >"$PLAYLIST"
-
-  echo 1 >"$CURRENT"
-
-  log "playlist created with $(wc -l <"$PLAYLIST") entries"
+    LC_ALL=C sort
 
 }
 
-get_current_wallpaper() {
+read_list() {
+
+  local -n out="$1"
+  local file="$2"
+
+  out=()
+  [[ -f "$file" ]] && mapfile -t out <"$file"
+  return 0
+
+}
+
+write_list() {
+
+  local file="$1"
+  shift
+
+  if (($#)); then
+    printf '%s\n' "$@" >"$file.tmp"
+  else
+    : >"$file.tmp"
+  fi
+
+  mv -f "$file.tmp" "$file"
+
+}
+
+migrate_legacy_state() {
+
+  [[ -f "$LEGACY_CURRENT" ]] || return 0
 
   local line
+  local -a all=()
 
-  [[ -f "$CURRENT" ]] || return 1
+  line=$(<"$LEGACY_CURRENT")
+  [[ "$line" =~ ^[0-9]+$ ]] && ((line >= 1)) || line=1
 
-  line=$(<"$CURRENT")
+  if [[ -f "$PLAYLIST" ]]; then
+    mapfile -t all <"$PLAYLIST"
+    write_list "$SEEN" "${all[@]:0:line-1}"
+    write_list "$PLAYLIST" "${all[@]:line-1}"
+    ((line >= 2)) && ((line - 2 < ${#all[@]})) && printf '%s\n' "${all[line-2]}" >"$LAST"
+  fi
 
-  [[ -n "$line" ]] || return 1
+  rm -f "$LEGACY_CURRENT"
 
-  sed -n "${line}p" "$PLAYLIST"
+  log "migrated legacy state (current=$line)"
+
+}
+
+start_cycle() {
+
+  local last=""
+
+  mapfile -t PENDING < <(printf '%s\n' "${AVAILABLE[@]}" | shuf)
+  SEEN_LIST=()
+
+  [[ -f "$LAST" ]] && last=$(<"$LAST")
+
+  # No empezar la vuelta con la misma imagen con la que acabó la anterior
+  if ((${#PENDING[@]} > 1)) && [[ "${PENDING[0]}" == "$last" ]]; then
+    PENDING=("${PENDING[@]:1}" "${PENDING[0]}")
+  fi
+
+  log "new cycle started with ${#PENDING[@]} entries"
+
+}
+
+sync_playlist() {
+
+  local f
+  local pos
+  local removed=0
+  local added=0
+  local -A in_dir=()
+  local -A known=()
+  local -a kept=()
+
+  mapfile -t AVAILABLE < <(scan_wallpapers)
+
+  if ((${#AVAILABLE[@]} == 0)); then
+    echo "error: no wallpapers found in $WALLPAPER_DIR" >&2
+    log "error: no wallpapers found in $WALLPAPER_DIR"
+    exit 1
+  fi
+
+  for f in "${AVAILABLE[@]}"; do
+    in_dir["$f"]=1
+  done
+
+  read_list PENDING "$PLAYLIST"
+  read_list SEEN_LIST "$SEEN"
+
+  # Descartar imágenes que ya no existen (y duplicados)
+  for f in "${PENDING[@]}"; do
+    if [[ -n "$f" && -n "${in_dir["$f"]:-}" && -z "${known["$f"]:-}" ]]; then
+      kept+=("$f")
+      known["$f"]=1
+    else
+      ((++removed))
+    fi
+  done
+  PENDING=("${kept[@]}")
+
+  kept=()
+  for f in "${SEEN_LIST[@]}"; do
+    if [[ -n "$f" && -n "${in_dir["$f"]:-}" && -z "${known["$f"]:-}" ]]; then
+      kept+=("$f")
+      known["$f"]=1
+    else
+      ((++removed))
+    fi
+  done
+  SEEN_LIST=("${kept[@]}")
+
+  # Insertar las imágenes nuevas en posiciones aleatorias de las pendientes
+  for f in "${AVAILABLE[@]}"; do
+    [[ -n "${known["$f"]:-}" ]] && continue
+    pos=$((RANDOM % (${#PENDING[@]} + 1)))
+    PENDING=("${PENDING[@]:0:pos}" "$f" "${PENDING[@]:pos}")
+    ((++added))
+  done
+
+  ((removed)) && log "removed $removed missing entries"
+  ((added)) && log "added $added new wallpapers"
+
+  ((${#PENDING[@]})) || start_cycle
+
+  write_list "$PLAYLIST" "${PENDING[@]}"
+  write_list "$SEEN" "${SEEN_LIST[@]}"
+
+  log "playlist: ${#PENDING[@]} pending, ${#SEEN_LIST[@]} seen"
+
+}
+
+processed_path() {
+
+  printf '%s/processed-%s.jpg' "$STATE_DIR" "$(printf '%s' "$1" | sha256sum | cut -c1-12)"
 
 }
 
@@ -146,33 +279,35 @@ set_wallpaper() {
 
   if [[ -n "$SCREEN_RES" ]] && [[ "$WALLPAPER_MODE" != "none" ]]; then
     local processed
-    processed="$STATE_DIR/processed-$(printf '%s' "$image" | sha256sum | cut -c1-12).jpg"
-    mkdir -p "$STATE_DIR"
+    processed=$(processed_path "$image")
     if process_image "$image" "$processed" "$WALLPAPER_MODE"; then
       target="$processed"
     fi
   fi
 
-  plasma-apply-wallpaperimage "$target" >/dev/null
+  plasma-apply-wallpaperimage "$target" >/dev/null || return 1
   log "wallpaper applied: $target"
+
+  # Conservar solo la imagen procesada en uso
+  local f
+  for f in "$STATE_DIR"/processed-*.jpg; do
+    [[ -e "$f" && "$f" != "$target" ]] && rm -f "$f"
+  done
+
+  return 0
 
 }
 
-advance_playlist() {
+mark_as_seen() {
 
-  local line
-  local total
+  local image="$1"
 
-  line=$(<"$CURRENT")
-  total=$(wc -l <"$PLAYLIST")
+  PENDING=("${PENDING[@]:1}")
+  SEEN_LIST+=("$image")
 
-  ((line++))
-
-  if ((line > total)); then
-    create_playlist
-  else
-    echo "$line" >"$CURRENT"
-  fi
+  write_list "$PLAYLIST" "${PENDING[@]}"
+  write_list "$SEEN" "${SEEN_LIST[@]}"
+  printf '%s\n' "$image" >"$LAST"
 
 }
 
@@ -190,9 +325,16 @@ initialize() {
     WALLPAPER_MODE="none"
   fi
 
-  [[ -f "$PLAYLIST" ]] || create_playlist
+  mkdir -p "$STATE_DIR"
 
-  [[ -f "$CURRENT" ]] || echo 1 >"$CURRENT"
+  # Evitar ejecuciones simultáneas (timer + ejecución manual)
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    log "another instance is running, exiting"
+    exit 0
+  fi
+
+  migrate_legacy_state
 
   log "initialized (mode=$WALLPAPER_MODE, dir=$WALLPAPER_DIR)"
 
@@ -205,19 +347,18 @@ main() {
 
   get_screen_resolution || true
 
-  local image
+  sync_playlist
 
-  image=$(get_current_wallpaper) || true
+  local image="${PENDING[0]}"
 
-  if [[ -z "$image" ]]; then
-    echo "error: no wallpaper to apply" >&2
-    log "error: no wallpaper to apply (current=$(<"$CURRENT" 2>/dev/null || echo missing))"
+  # Si no se puede aplicar (p. ej. sin sesión de Plasma), no se consume la imagen
+  if ! set_wallpaper "$image"; then
+    echo "error: could not apply wallpaper: $image" >&2
+    log "error: could not apply wallpaper: $image"
     exit 1
   fi
 
-  set_wallpaper "$image"
-
-  advance_playlist
+  mark_as_seen "$image"
 
   log "--- run end ---"
 

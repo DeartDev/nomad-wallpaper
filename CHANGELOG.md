@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.4.0 — 2026-10-20
+
+### Changed
+- **Playlist is synced with the wallpaper directory on every run**: new
+  images are inserted at random positions among the pending ones instead of
+  waiting for the whole cycle to finish; deleted or renamed images are
+  dropped. State is now `playlist.txt` (pending), `seen.txt` (shown this
+  cycle) and `last`; the old `current` index is migrated automatically.
+- **Timer uses a single trigger** (`OnCalendar=*:0/15`). The overlapping
+  `OnBootSec`, `OnUnitActiveSec` and `Persistent` triggers could change the
+  wallpaper twice within a few minutes after boot.
+
+### Fixed
+- **Rotation froze forever when the next image was deleted or renamed**:
+  applying failed under `set -e` before the index advanced, so every run
+  retried the same missing file.
+- A wallpaper is only marked as seen after it was applied successfully
+  (e.g. runs before Plasma is up no longer consume an image).
+- A new cycle no longer starts with the image that ended the previous one.
+- Concurrent runs (timer + manual) are serialized with `flock`.
+- Stale `processed-*.jpg` files are removed; only the one in use is kept.
+
 ## v1.3.0 — 2026-07-24
 
 ### Fixed

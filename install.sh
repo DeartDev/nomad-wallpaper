@@ -24,7 +24,8 @@ echo "  Service → $SERVICE_DIR/nomad-wallpaper.service"
 echo "  Timer   → $SERVICE_DIR/nomad-wallpaper.timer"
 
 systemctl --user daemon-reload
-systemctl --user enable --now nomad-wallpaper.timer
+systemctl --user enable nomad-wallpaper.timer
+systemctl --user restart nomad-wallpaper.timer
 
 echo ""
 echo "✓ Nomad Wallpaper installed."

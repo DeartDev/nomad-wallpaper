@@ -6,6 +6,8 @@ Rotate your wallpapers randomly on KDE Plasma 6 — no repeats until you've seen
 
 - Random playlist from your wallpaper directory
 - No repeated wallpapers until the full cycle completes
+- New wallpapers join the current cycle; deleted ones are dropped automatically
+- Resumes where it left off after a shutdown or reboot
 - KDE Plasma 6 support (`plasma-apply-wallpaperimage`)
 - Single-file Bash script, zero dependencies
 - systemd timer (persistent, configurable interval)
@@ -14,11 +16,17 @@ Rotate your wallpapers randomly on KDE Plasma 6 — no repeats until you've seen
 
 On each run, the script:
 
-1. Reads a shuffled playlist (or creates one if none exists).
-2. Applies the current entry as wallpaper.
-3. Advances to the next entry for the next run.
+1. Syncs the playlist with the wallpaper directory: new images are inserted
+   at random positions among the pending ones, missing images are dropped.
+2. Applies the next pending entry as wallpaper.
+3. Marks it as seen — only if it was applied successfully.
 
-A systemd timer triggers the script every 15 minutes. When the playlist is exhausted, it reshuffles and starts over.
+A systemd timer triggers the script every 15 minutes (`:00`, `:15`, `:30`, `:45`).
+When every image has been shown, it reshuffles and starts a new cycle, never
+opening with the image that closed the previous one.
+
+State lives in `~/.local/share/nomad-wallpaper/`: `playlist.txt` (pending, in
+order), `seen.txt` (already shown this cycle) and `last` (last applied image).
 
 ## Installation
 
@@ -79,7 +87,10 @@ systemctl --user status nomad-wallpaper.timer
 ```bash
 systemctl --user stop nomad-wallpaper.timer
 systemctl --user edit nomad-wallpaper.timer
-# Change OnUnitActiveSec to your preferred interval
+# Add:
+# [Timer]
+# OnCalendar=
+# OnCalendar=*:0/30
 systemctl --user daemon-reload
 systemctl --user start nomad-wallpaper.timer
 ```
@@ -87,7 +98,8 @@ systemctl --user start nomad-wallpaper.timer
 ### Update wallpapers
 
 Add new images to `~/Imágenes/Wallpapers` (or wherever `WALLPAPER_DIR` points).
-The new files are picked up automatically when the playlist cycles back to the start.
+New files are picked up on the next run and shuffled into the remaining part of
+the current cycle. Deleted or renamed files are removed from the playlist.
 
 ### Verbose logs
 
@@ -112,20 +124,10 @@ By default, systemd kills all user services when your session ends.
 Fix it once with:
 
 ```bash
-sudo loginctl enable-linger deartdev
+sudo loginctl enable-linger "$USER"
 ```
 
 The installer warns about this if it detects `Linger=no`.
-
-### Timer is "active (elapsed)" but no wallpaper changes
-
-This happens when the timer was started mid-session (not at boot):
-`OnBootSec` already elapsed and `OnUnitActiveSec` has no previous
-activation to count from. Prime it once:
-
-```bash
-systemctl --user start nomad-wallpaper.service
-```
 
 ### Wallpaper doesn't change even though the service runs
 
