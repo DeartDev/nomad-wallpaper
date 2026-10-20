@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.5.0 — 2026-10-20
+
+### Added
+- **Persistent configuration** in `~/.config/nomad-wallpaper/config`
+  (`WALLPAPER_DIR`, `WALLPAPER_MODE`, `SCREEN_RES`). It is sourced after the
+  defaults, so it survives reinstalls; the installer creates it from
+  `config.example` only if it doesn't exist.
+- **Installer preflight**: fails if `plasma-apply-wallpaperimage` or
+  `systemctl` are missing or the script has a syntax error (runs
+  `shellcheck` when available); warns about missing ImageMagick,
+  `xrandr`/`xdpyinfo` and `~/.local/bin` not in `PATH`.
+
+### Changed
+- Default wallpaper directory is `<XDG Pictures dir>/Wallpapers`
+  (`xdg-user-dir PICTURES`, falling back to `~/Pictures`) instead of the
+  hardcoded `~/Imágenes/Wallpapers`.
+- Service runs with `NoNewPrivileges=yes`.
+- Internal v1.0.0 work notes moved to `docs/archive/`.
+
+### Fixed
+- README claimed "zero dependencies"; it now lists the real requirements.
+- An unknown `WALLPAPER_MODE` falls back to `fill` with a warning instead of
+  failing every run.
+- `uninstall.sh` no longer blocks on the state-data prompt when run
+  non-interactively, and tells where the kept configuration lives.
+
 ## v1.4.0 — 2026-10-20
 
 ### Changed

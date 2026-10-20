@@ -1,0 +1,15 @@
+# Nomad Wallpaper — user configuration
+#
+# Location: ~/.config/nomad-wallpaper/config
+# This file is sourced by the script (Bash syntax). Keep it owned by you
+# and not writable by others — same trust model as ~/.bashrc.
+# Uncomment and edit only what you want to change.
+
+# Directory with your wallpapers (default: <Pictures>/Wallpapers via xdg-user-dir)
+#WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
+
+# Fitting mode: fill | fit | center | tile | stretch | none
+#WALLPAPER_MODE="fill"
+
+# Screen resolution used to process images (default: auto-detected)
+#SCREEN_RES="1920x1080"

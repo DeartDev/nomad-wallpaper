@@ -7,6 +7,7 @@ SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE="$SERVICE_DIR/nomad-wallpaper.service"
 TIMER="$SERVICE_DIR/nomad-wallpaper.timer"
 STATE_DIR="$HOME/.local/share/nomad-wallpaper"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nomad-wallpaper"
 
 echo "Uninstalling Nomad Wallpaper..."
 
@@ -21,7 +22,7 @@ echo "  Removed script"
 
 systemctl --user daemon-reload
 
-if [[ -d "$STATE_DIR" ]]; then
+if [[ -d "$STATE_DIR" ]] && [[ -t 0 ]]; then
   echo ""
   echo "  Playlist and state data found at:"
   echo "    $STATE_DIR"
@@ -30,6 +31,12 @@ if [[ -d "$STATE_DIR" ]]; then
     rm -rf "$STATE_DIR"
     echo "  State data removed"
   fi
+fi
+
+if [[ -d "$CONFIG_DIR" ]]; then
+  echo ""
+  echo "  Your configuration was kept at:"
+  echo "    $CONFIG_DIR"
 fi
 
 echo ""

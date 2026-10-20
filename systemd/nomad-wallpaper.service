@@ -5,3 +5,4 @@ Wants=graphical-session.target
 [Service]
 Type=oneshot
 ExecStart=%h/.local/bin/nomad-wallpaper
+NoNewPrivileges=yes

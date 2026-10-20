@@ -9,8 +9,9 @@ Rotate your wallpapers randomly on KDE Plasma 6 — no repeats until you've seen
 - New wallpapers join the current cycle; deleted ones are dropped automatically
 - Resumes where it left off after a shutdown or reboot
 - KDE Plasma 6 support (`plasma-apply-wallpaperimage`)
-- Single-file Bash script, zero dependencies
-- systemd timer (persistent, configurable interval)
+- Single-file Bash script — only standard Plasma/systemd tools, ImageMagick optional
+- systemd timer (configurable interval)
+- Persistent user configuration that survives reinstalls
 
 ## How it works
 
@@ -36,22 +37,35 @@ cd nomad-wallpaper
 ./install.sh
 ```
 
-The installer copies the script to `~/.local/bin/` and sets up the systemd timer.
+The installer checks dependencies, copies the script to `~/.local/bin/`, sets up
+the systemd timer and creates `~/.config/nomad-wallpaper/config` if it doesn't
+exist (an existing one is never overwritten).
 
 ### Requirements
 
-- KDE Plasma 6
+- KDE Plasma 6 (`plasma-apply-wallpaperimage`, from plasma-workspace)
 - systemd (user services enabled)
-- `~/.local/bin/` in your `PATH` (add it if missing)
+- `xrandr` or `xdpyinfo` for screen resolution detection (or set `SCREEN_RES`)
+- ImageMagick (`magick`) — optional, needed for fitting modes other than `none`
+- `~/.local/bin/` in your `PATH` to run it manually (the installer warns if missing)
 
 ## Configuration
 
-By default the script looks for images in `~/Imágenes/Wallpapers`. To change this, edit the variables at the top of the script:
+Edit `~/.config/nomad-wallpaper/config` (see [`config.example`](config.example)).
+Changes apply on the next run and survive reinstalls:
 
 ```bash
-WALLPAPER_DIR="$HOME/Imágenes/Wallpapers"
-WALLPAPER_MODE="fill"   # fill | fit | center | tile | stretch | none
+WALLPAPER_DIR="$HOME/Pictures/Wallpapers"   # default: <XDG Pictures dir>/Wallpapers
+WALLPAPER_MODE="fill"                       # fill | fit | center | tile | stretch | none
+SCREEN_RES="1920x1080"                      # default: auto-detected
 ```
+
+By default images are read from the `Wallpapers` folder inside your XDG
+Pictures directory (`xdg-user-dir PICTURES`, e.g. `~/Pictures/Wallpapers` or
+`~/Imágenes/Wallpapers`).
+
+The config file is sourced as Bash, so keep it owned by you and not writable
+by others (same trust model as `~/.bashrc`).
 
 | Mode | Effect |
 |---|---|
@@ -97,7 +111,7 @@ systemctl --user start nomad-wallpaper.timer
 
 ### Update wallpapers
 
-Add new images to `~/Imágenes/Wallpapers` (or wherever `WALLPAPER_DIR` points).
+Add new images to your wallpaper directory (`WALLPAPER_DIR`).
 New files are picked up on the next run and shuffled into the remaining part of
 the current cycle. Deleted or renamed files are removed from the playlist.
 
@@ -127,7 +141,8 @@ Fix it once with:
 sudo loginctl enable-linger "$USER"
 ```
 
-The installer warns about this if it detects `Linger=no`.
+The installer warns about this if it detects `Linger=no`. Note that linger keeps
+your user's systemd services running even when you are not logged in.
 
 ### Wallpaper doesn't change even though the service runs
 
