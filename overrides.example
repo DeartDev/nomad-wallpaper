@@ -1,0 +1,12 @@
+# Nomad Wallpaper — per-image fitting mode
+#
+# Location: ~/.config/nomad-wallpaper/overrides
+# One rule per line: <mode> <pattern>
+#   mode:    auto | fill | fit | blur | pad | center | tile | stretch | none
+#   pattern: Bash glob matched against the file name (not the full path);
+#            may contain spaces. The first matching rule wins.
+#
+# Examples:
+#fill   samurai-*.png
+#blur   my photo with spaces.jpg
+#none   *-ready.jpg

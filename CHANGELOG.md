@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.6.0 — 2026-10-20
+
+### Added
+- **`auto` fitting mode (new default)**: each image gets the layout that
+  suits it. Similar aspect ratio and enough resolution → `fill`; otherwise
+  the whole image is shown, padded with its edge color when the edges are a
+  single solid color (`pad`) or over a blurred copy of itself (`blur`).
+  Thresholds are configurable with `AUTO_MAX_CROP` (default 25 %) and
+  `MAX_UPSCALE` (default 150 %).
+- **`blur` and `pad` modes**, also selectable manually. Both cap upscaling
+  at `MAX_UPSCALE` so small images aren't blown up.
+- **Per-image overrides** in `~/.config/nomad-wallpaper/overrides`
+  (`<mode> <glob>` per line); the installer creates it from
+  `overrides.example` if missing.
+
+### Changed
+- An unknown `WALLPAPER_MODE` now falls back to `auto`.
+- If processing fails, the original image is applied and a warning is logged.
+
 ## v1.5.0 — 2026-10-20
 
 ### Added

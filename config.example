@@ -8,8 +8,14 @@
 # Directory with your wallpapers (default: <Pictures>/Wallpapers via xdg-user-dir)
 #WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
 
-# Fitting mode: fill | fit | center | tile | stretch | none
-#WALLPAPER_MODE="fill"
+# Fitting mode: auto | fill | fit | blur | pad | center | tile | stretch | none
+#WALLPAPER_MODE="auto"
+
+# auto: maximum share of the image (%) that fill may crop away
+#AUTO_MAX_CROP=25
+
+# blur/pad/auto: maximum upscaling (%) applied to the image
+#MAX_UPSCALE=150
 
 # Screen resolution used to process images (default: auto-detected)
 #SCREEN_RES="1920x1080"

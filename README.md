@@ -11,6 +11,8 @@ Rotate your wallpapers randomly on KDE Plasma 6 — no repeats until you've seen
 - KDE Plasma 6 support (`plasma-apply-wallpaperimage`)
 - Single-file Bash script — only standard Plasma/systemd tools, ImageMagick optional
 - systemd timer (configurable interval)
+- `auto` fitting: picks the best layout for each image (crop, blurred background or solid padding)
+- Per-image overrides
 - Persistent user configuration that survives reinstalls
 
 ## How it works
@@ -56,7 +58,7 @@ Changes apply on the next run and survive reinstalls:
 
 ```bash
 WALLPAPER_DIR="$HOME/Pictures/Wallpapers"   # default: <XDG Pictures dir>/Wallpapers
-WALLPAPER_MODE="fill"                       # fill | fit | center | tile | stretch | none
+WALLPAPER_MODE="auto"                       # auto | fill | fit | blur | pad | center | tile | stretch | none
 SCREEN_RES="1920x1080"                      # default: auto-detected
 ```
 
@@ -69,7 +71,10 @@ by others (same trust model as `~/.bashrc`).
 
 | Mode | Effect |
 |---|---|
+| `auto` | **Default.** Chooses per image: `fill`, `blur` or `pad` (see below) |
 | `fill` | Scales and crops to fill the screen (no black bars) |
+| `blur` | Whole image centered over a blurred, darkened copy of itself |
+| `pad` | Whole image centered over the color of its own edges |
 | `fit` | Scales to fit entirely (black bars if aspect ratio differs) |
 | `center` | Original size, centered with black bars |
 | `tile` | Repeats the image as a mosaic |
@@ -77,6 +82,31 @@ by others (same trust model as `~/.bashrc`).
 | `none` | No processing, as-is |
 
 Requires ImageMagick (`magick`) for modes other than `none` — automatic fallback if not installed.
+
+### How `auto` decides
+
+1. If the image has a similar aspect ratio to the screen — `fill` would crop
+   at most `AUTO_MAX_CROP` % (default 25) — and doesn't need more than
+   `MAX_UPSCALE` % (default 150) to cover it → **`fill`**.
+2. Otherwise the whole image is shown, upscaled at most `MAX_UPSCALE` %:
+   - edges of a single solid color (e.g. a black background) → **`pad`** with that color;
+   - any other image → **`blur`**.
+
+`blur` and `pad` never upscale beyond `MAX_UPSCALE` %, so small images stay sharp.
+Run with `-v` to log the decision taken for each image.
+
+### Per-image overrides
+
+When `auto` doesn't pick what you want, add a rule to
+`~/.config/nomad-wallpaper/overrides` (see [`overrides.example`](overrides.example)):
+
+```
+# <mode> <file name pattern>
+fill   samurai-*.png
+blur   my photo with spaces.jpg
+```
+
+The pattern is a Bash glob matched against the file name; the first match wins.
 
 Supported formats: `jpg`, `jpeg`, `png`, `webp`.
 

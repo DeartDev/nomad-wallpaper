@@ -9,6 +9,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nomad-wallpaper"
 
 BIN_PATH="$BIN_DIR/nomad-wallpaper"
 CONFIG_PATH="$CONFIG_DIR/config"
+OVERRIDES_PATH="$CONFIG_DIR/overrides"
 SERVICE_SRC="$REPO_DIR/systemd/nomad-wallpaper.service"
 TIMER_SRC="$REPO_DIR/systemd/nomad-wallpaper.timer"
 
@@ -54,6 +55,14 @@ if [[ ! -f "$CONFIG_PATH" ]]; then
   echo "  Config  → $CONFIG_PATH (new)"
 else
   echo "  Config  → $CONFIG_PATH (kept)"
+fi
+
+if [[ ! -f "$OVERRIDES_PATH" ]]; then
+  mkdir -p "$CONFIG_DIR"
+  cp "$REPO_DIR/overrides.example" "$OVERRIDES_PATH"
+  echo "  Rules   → $OVERRIDES_PATH (new)"
+else
+  echo "  Rules   → $OVERRIDES_PATH (kept)"
 fi
 
 systemctl --user daemon-reload
