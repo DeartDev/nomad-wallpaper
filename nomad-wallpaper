@@ -7,20 +7,41 @@ set -euo pipefail
 # =============================================================================
 
 VERBOSE=0
+COMMAND="run"
+SHOW_ALL=0
+
+usage() {
+  cat <<'EOF_USAGE'
+Usage: nomad-wallpaper [-v|--verbose]          apply the next wallpaper
+       nomad-wallpaper status [-a|--all]       show the rotation state (read-only)
+       nomad-wallpaper -h|--help
+
+  -v, --verbose   append timestamped entries to the log file
+  -a, --all       with status: list every image with the mode it will use
+EOF_USAGE
+}
 
 for arg in "$@"; do
   case "$arg" in
+    status) COMMAND="status" ;;
+    -a|--all) SHOW_ALL=1 ;;
     -v|--verbose) VERBOSE=1 ;;
     -h|--help)
-      echo "Usage: nomad-wallpaper [-v|--verbose] [-h|--help]"
+      usage
       exit 0
       ;;
     *)
       echo "error: unknown argument: $arg" >&2
+      usage >&2
       exit 1
       ;;
   esac
 done
+
+if ((SHOW_ALL)) && [[ "$COMMAND" != "status" ]]; then
+  echo "error: --all is only valid with status" >&2
+  exit 1
+fi
 
 # =============================================================================
 # CONFIGURACIÓN
@@ -479,13 +500,7 @@ mark_as_seen() {
 
 }
 
-initialize() {
-
-  if [[ ! -d "$WALLPAPER_DIR" ]]; then
-    echo "error: wallpaper directory not found: $WALLPAPER_DIR" >&2
-    log "error: wallpaper directory not found: $WALLPAPER_DIR"
-    exit 1
-  fi
+validate_settings() {
 
   if ! is_valid_mode "$WALLPAPER_MODE"; then
     echo "warning: unknown WALLPAPER_MODE '$WALLPAPER_MODE', falling back to auto" >&2
@@ -510,6 +525,18 @@ initialize() {
     log "warning: ImageMagick not found, using mode=none"
     WALLPAPER_MODE="none"
   fi
+
+}
+
+initialize() {
+
+  if [[ ! -d "$WALLPAPER_DIR" ]]; then
+    echo "error: wallpaper directory not found: $WALLPAPER_DIR" >&2
+    log "error: wallpaper directory not found: $WALLPAPER_DIR"
+    exit 1
+  fi
+
+  validate_settings
 
   mkdir -p "$STATE_DIR"
 
@@ -550,8 +577,171 @@ main() {
 
 }
 
+# Modo efectivo de una imagen, tal como lo aplicaría set_wallpaper
+describe_mode() {
+
+  local image="$1"
+  local mode
+  local suffix=""
+
+  mode=$(override_mode "${image##*/}")
+  if [[ -n "$mode" ]]; then
+    suffix=" (override)"
+  else
+    mode="$WALLPAPER_MODE"
+  fi
+
+  if [[ -z "$SCREEN_RES" ]] || ((!HAVE_MAGICK)); then
+    mode="none"
+  elif [[ "$mode" == "auto" ]]; then
+    if resolve_auto_mode "$image"; then
+      mode="${AUTO_MODE%%:*}"
+    else
+      mode="auto?"
+    fi
+  fi
+
+  printf '%s%s' "$mode" "$suffix"
+
+}
+
+status() {
+
+  local f
+  local mode
+  local pos=0
+  local new=0
+  local missing=0
+  local last=""
+  local next_image=""
+  local next_run=""
+  local rules=0
+  local -a pending=()
+  local -a seen=()
+  local -a available=()
+  local -A in_dir=()
+  local -A known=()
+  local -A mode_count=()
+
+  validate_settings
+  get_screen_resolution 2>/dev/null || true
+
+  [[ -d "$WALLPAPER_DIR" ]] && mapfile -t available < <(scan_wallpapers)
+  read_list pending "$PLAYLIST"
+  read_list seen "$SEEN"
+  [[ -f "$LAST" ]] && last=$(<"$LAST")
+
+  for f in "${available[@]}"; do
+    in_dir["$f"]=1
+  done
+
+  for f in "${pending[@]}" "${seen[@]}"; do
+    [[ -n "$f" ]] || continue
+    known["$f"]=1
+    [[ -n "${in_dir["$f"]:-}" ]] || ((++missing))
+  done
+
+  for f in "${available[@]}"; do
+    [[ -n "${known["$f"]:-}" ]] || ((++new))
+  done
+
+  for f in "${pending[@]}"; do
+    if [[ -n "${in_dir["$f"]:-}" ]]; then
+      next_image="$f"
+      break
+    fi
+  done
+
+  [[ -f "$OVERRIDES_FILE" ]] && rules=$(grep -cvE '^[[:space:]]*(#|$)' "$OVERRIDES_FILE" || true)
+
+  if command -v systemctl &>/dev/null &&
+    [[ "$(systemctl --user show nomad-wallpaper.timer -p ActiveState --value 2>/dev/null)" == "active" ]]; then
+    next_run=$(systemctl --user show nomad-wallpaper.timer -p NextElapseUSecRealtime --value 2>/dev/null)
+  fi
+
+  echo "Nomad Wallpaper status"
+  echo ""
+
+  if [[ -d "$WALLPAPER_DIR" ]]; then
+    printf '  %-12s %s (%d images)\n' "Directory:" "$WALLPAPER_DIR" "${#available[@]}"
+  else
+    printf '  %-12s %s (not found)\n' "Directory:" "$WALLPAPER_DIR"
+  fi
+
+  if [[ "$WALLPAPER_MODE" == "auto" ]]; then
+    printf '  %-12s auto (max crop %d%%, max upscale %d%%)\n' "Mode:" "$AUTO_MAX_CROP" "$MAX_UPSCALE"
+  else
+    printf '  %-12s %s\n' "Mode:" "$WALLPAPER_MODE"
+  fi
+
+  printf '  %-12s %d rule(s) in %s\n' "Overrides:" "$rules" "$OVERRIDES_FILE"
+
+  printf '  %-12s %s\n' "Resolution:" "${SCREEN_RES:-unknown}"
+
+  if ((${#pending[@]} + ${#seen[@]} == 0)); then
+    printf '  %-12s %s\n' "Cycle:" "not started yet"
+  else
+    printf '  %-12s %d/%d shown, %d pending\n' "Cycle:" \
+      "${#seen[@]}" "$((${#seen[@]} + ${#pending[@]}))" "${#pending[@]}"
+  fi
+
+  if [[ -n "$last" ]]; then
+    printf '  %-12s %s\n' "Current:" "${last##*/}"
+  else
+    printf '  %-12s %s\n' "Current:" "none"
+  fi
+  if [[ -n "$next_image" ]]; then
+    printf '  %-12s %s\n' "Next:" "${next_image##*/}"
+  else
+    printf '  %-12s %s\n' "Next:" "new cycle on next run"
+  fi
+  printf '  %-12s %s\n' "Next change:" "${next_run:-timer inactive}"
+
+  if ((new || missing)); then
+    printf '  %-12s %d new, %d missing (synced on next run)\n' "Sync:" "$new" "$missing"
+  fi
+
+  ((SHOW_ALL)) || return 0
+
+  echo ""
+  echo "Images (in order of appearance):"
+  echo ""
+
+  for f in "${pending[@]}"; do
+    [[ -n "${in_dir["$f"]:-}" ]] || continue
+    mode=$(describe_mode "$f")
+    mode_count["${mode% (override)}"]=$((${mode_count["${mode% (override)}"]:-0} + 1))
+    printf '  %4d  %-16s %s\n' "$((++pos))" "$mode" "${f##*/}"
+  done
+
+  for f in "${available[@]}"; do
+    [[ -n "${known["$f"]:-}" ]] && continue
+    mode=$(describe_mode "$f")
+    mode_count["${mode% (override)}"]=$((${mode_count["${mode% (override)}"]:-0} + 1))
+    printf '  %4s  %-16s %s\n' "new" "$mode" "${f##*/}"
+  done
+
+  for f in "${seen[@]}"; do
+    [[ -n "${in_dir["$f"]:-}" ]] || continue
+    mode=$(describe_mode "$f")
+    mode_count["${mode% (override)}"]=$((${mode_count["${mode% (override)}"]:-0} + 1))
+    printf '  %4s  %-16s %s\n' "seen" "$mode" "${f##*/}"
+  done
+
+  echo ""
+  printf '  %s:' "By mode"
+  for mode in "${!mode_count[@]}"; do
+    printf ' %s=%d' "$mode" "${mode_count[$mode]}"
+  done
+  echo ""
+
+}
+
 # =============================================================================
 # PROGRAMA PRINCIPAL
 # =============================================================================
 
-main
+case "$COMMAND" in
+  status) status ;;
+  *) main ;;
+esac

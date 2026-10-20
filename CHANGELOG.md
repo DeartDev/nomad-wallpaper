@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.7.0 — 2026-10-20
+
+### Added
+- **`status` subcommand** (read-only): wallpaper directory and image count,
+  mode and thresholds, override rules, screen resolution, cycle progress,
+  current and next image, next timer run, and images pending sync.
+- **`status --all`**: every image in order of appearance (pending, new,
+  seen) with the mode it will actually get — `auto` decisions resolved and
+  overrides marked — plus a count per mode.
+
 ## v1.6.1 — 2026-10-20
 
 ### Changed

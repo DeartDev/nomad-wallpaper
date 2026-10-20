@@ -120,8 +120,19 @@ Supported formats: `jpg`, `jpeg`, `png`, `webp`.
 ```bash
 nomad-wallpaper              # quiet mode (default)
 nomad-wallpaper -v           # verbose mode (writes to ~/.local/share/nomad-wallpaper/nomad.log)
+nomad-wallpaper status       # show rotation state (see below)
 nomad-wallpaper -h           # help
 ```
+
+### Check rotation status
+
+```bash
+nomad-wallpaper status         # directory, mode, cycle progress, current/next image, next change
+nomad-wallpaper status --all   # also every image in order, with the mode it will use
+```
+
+`status` is read-only: it never changes the playlist or the wallpaper. Images
+added or removed since the last run are reported as pending sync.
 
 ### Check timer status
 
