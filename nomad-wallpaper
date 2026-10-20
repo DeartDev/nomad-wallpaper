@@ -8,23 +8,27 @@ set -euo pipefail
 
 VERBOSE=0
 COMMAND="run"
-SHOW_ALL=0
+OPT_ALL=0
 
 usage() {
   cat <<'EOF_USAGE'
-Usage: nomad-wallpaper [-v|--verbose]          apply the next wallpaper
-       nomad-wallpaper status [-a|--all]       show the rotation state (read-only)
+Usage: nomad-wallpaper [next] [-v|--verbose]     apply the next wallpaper now
+       nomad-wallpaper status [-a|--all]         show the rotation state (read-only)
+       nomad-wallpaper reshuffle [-a|--all]      shuffle the pending images again
        nomad-wallpaper -h|--help
 
   -v, --verbose   append timestamped entries to the log file
-  -a, --all       with status: list every image with the mode it will use
+  -a, --all       status: list every image with the mode it will use
+                  reshuffle: restart the cycle with all images (seen ones too)
 EOF_USAGE
 }
 
 for arg in "$@"; do
   case "$arg" in
+    next) COMMAND="run" ;;
     status) COMMAND="status" ;;
-    -a|--all) SHOW_ALL=1 ;;
+    reshuffle) COMMAND="reshuffle" ;;
+    -a|--all) OPT_ALL=1 ;;
     -v|--verbose) VERBOSE=1 ;;
     -h|--help)
       usage
@@ -38,8 +42,8 @@ for arg in "$@"; do
   esac
 done
 
-if ((SHOW_ALL)) && [[ "$COMMAND" != "status" ]]; then
-  echo "error: --all is only valid with status" >&2
+if ((OPT_ALL)) && [[ "$COMMAND" == "run" ]]; then
+  echo "error: --all is only valid with status or reshuffle" >&2
   exit 1
 fi
 
@@ -701,7 +705,7 @@ status() {
     printf '  %-12s %d new, %d missing (synced on next run)\n' "Sync:" "$new" "$missing"
   fi
 
-  ((SHOW_ALL)) || return 0
+  ((OPT_ALL)) || return 0
 
   echo ""
   echo "Images (in order of appearance):"
@@ -737,11 +741,40 @@ status() {
 
 }
 
+reshuffle() {
+
+  log "--- reshuffle start ---"
+  initialize
+
+  sync_playlist
+
+  if ((OPT_ALL)); then
+    start_cycle
+  else
+    mapfile -t PENDING < <(printf '%s\n' "${PENDING[@]}" | shuf)
+  fi
+
+  write_list "$PLAYLIST" "${PENDING[@]}"
+  write_list "$SEEN" "${SEEN_LIST[@]}"
+
+  if ((OPT_ALL)); then
+    echo "Cycle restarted: ${#PENDING[@]} images shuffled."
+  else
+    echo "Shuffled ${#PENDING[@]} pending images (${#SEEN_LIST[@]} already shown are kept)."
+  fi
+  echo "Next: ${PENDING[0]##*/}"
+
+  log "reshuffled (all=$OPT_ALL): ${#PENDING[@]} pending, ${#SEEN_LIST[@]} seen"
+  log "--- reshuffle end ---"
+
+}
+
 # =============================================================================
 # PROGRAMA PRINCIPAL
 # =============================================================================
 
 case "$COMMAND" in
   status) status ;;
+  reshuffle) reshuffle ;;
   *) main ;;
 esac

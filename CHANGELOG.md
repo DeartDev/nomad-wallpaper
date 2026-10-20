@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.8.0 — 2026-10-20
+
+### Added
+- **`next` subcommand**: applies the next wallpaper now (explicit alias of
+  running the script without arguments).
+- **`reshuffle` subcommand**: shuffles the pending images again, keeping the
+  already shown ones as seen. `reshuffle --all` restarts the cycle with every
+  image, never opening with the current one. Neither changes the current
+  wallpaper; both take the same lock and sync as a normal run.
+
 ## v1.7.0 — 2026-10-20
 
 ### Added

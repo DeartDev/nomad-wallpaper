@@ -118,11 +118,20 @@ Supported formats: `jpg`, `jpeg`, `png`, `webp`.
 ### Run manually
 
 ```bash
-nomad-wallpaper              # quiet mode (default)
+nomad-wallpaper              # apply the next wallpaper now (same as: nomad-wallpaper next)
 nomad-wallpaper -v           # verbose mode (writes to ~/.local/share/nomad-wallpaper/nomad.log)
 nomad-wallpaper status       # show rotation state (see below)
+nomad-wallpaper reshuffle    # shuffle the pending images again (seen ones stay seen)
+nomad-wallpaper reshuffle -a # restart the cycle with all images shuffled
 nomad-wallpaper -h           # help
 ```
+
+Applying a wallpaper manually doesn't move the timer: the next automatic
+change still happens at the next quarter hour.
+
+`reshuffle` doesn't change the current wallpaper; it only reorders what comes
+next. Plain `reshuffle` keeps the "no repeats until all are shown" rule;
+`reshuffle --all` starts a fresh cycle (never opening with the current image).
 
 ### Check rotation status
 

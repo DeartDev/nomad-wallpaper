@@ -1,7 +1,7 @@
 # Plan de Mejora — Nomad Wallpaper
 
 **Análisis original:** 2026-08-10 sobre v1.3.0 (commit `4685c65`)
-**Última revisión:** 2026-10-20, tras v1.7.0
+**Última revisión:** 2026-10-20, tras v1.8.0
 
 Prioridades: 🔴 **Alta** · 🟡 **Media** · 🟢 **Baja**
 
@@ -74,7 +74,7 @@ Verificado con las 129 imágenes reales a 1920x1080: 119 → `fill`, 10 → imag
 ### Fase 7 — Mejoras funcionales opcionales · 🟢
 1. M-08: detección de resolución con `kscreen-doctor` (Wayland sin XWayland) y caché de la resolución.
 2. Multi-monitor: resolución por pantalla (hoy solo se usa la primaria).
-3. Subcomandos CLI: `next` y `reshuffle`. (`status` y `status --all`, con el modo que recibirá cada imagen, ✅ hechos en v1.7.0.)
+3. ✅ Subcomandos CLI: `status` / `status --all` (v1.7.0), `next` y `reshuffle` / `reshuffle --all` (v1.8.0).
 4. Caché de imágenes procesadas (clave: ruta + mtime + resolución + modo) para evitar reprocesar en cada vuelta. Hoy no es necesario por el coste (< 2 s cada 15 min).
 
 ### Menores · 🟢
